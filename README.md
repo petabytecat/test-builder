@@ -1,4 +1,7 @@
 # test-builder
 
-- Download 6th edition of IB docs questionbank
-- put it inside test-builder folder 
+- Download 5th (topic)/6th edition of IB docs questionbank
+- Put it inside test-builder folder
+- Extract the file
+
+(don't change any folder names)
