@@ -7,11 +7,11 @@ import copy
 import os
 
 if len(sys.argv) < 2:
-    print("Usage: python script.py <source_url> [destination_file]")
+    print("Usage: python script.py <source_url> [include_subsection] [destination_file]")
     sys.exit(1)
 
 source_url = sys.argv[1]
-include_subsections = True if len(sys.argv) > 2 and sys.argv[2] == "True" else False
+include_subsection = True if len(sys.argv) > 2 and sys.argv[2] == "True" else False
 destination_file = sys.argv[3] if len(sys.argv) > 3 else "copy.html"
 
 parsed_url = urlparse(source_url)
@@ -24,17 +24,11 @@ except FileNotFoundError:
     print(f"Source file not found: {file_path}")
     sys.exit(1)
 
-# Find base path by locating 'test-builder' in the path
-base_path_match = re.search(r'(.*?test-builder)', file_path)
-if not base_path_match:
-    print("Error: 'test-builder' directory not found in path")
-    sys.exit(1)
-base_path = base_path_match.group(1)
+script_dir = os.path.dirname(os.path.abspath(__file__))
 
-relative_path = file_path[len(base_path):].lstrip('/')
-
-edition = relative_path.split("/")[0]
-subject = relative_path.split("/")[6]
+relative_path = os.path.relpath(file_path, script_dir)
+edition = relative_path.split(os.sep)[0]
+subject = relative_path.split(os.sep)[6]
 
 with open(destination_file, 'r', encoding='utf-8') as f:
     content = f.read()
@@ -67,7 +61,7 @@ for row in rows:
     header = row.find('h3')
     if (header and not "questions" in header.text) or not header:
         continue
-    if header and "Sub sections" in header.text and not include_subsections:
+    if header and "Sub sections" in header.text and not include_subsection:
         continue
     for li in row.find_all("li"):
         question_code = li.text.split(":")[0].strip()
@@ -84,28 +78,59 @@ for row in rows:
 
 sorted_questions = sorted(links_dict.keys(), key=parse_question_code)
 
-def remove_duplicate_questions(question_codes):
-    # Function to get the base question number without the part
+all_questions = []
+if edition == "5. Fifth Edition - TOPIC":
     def get_base_question(code):
-        # Split by dot and get all parts except the last
         parts = code.split('.')
-        # Remove the last character if it's a letter
         if parts[-1][-1].isalpha():
             parts[-1] = parts[-1][:-1]
         return '.'.join(parts)
 
     seen_questions = set()
-    unique_codes = []
 
-    for code in question_codes:
+    for code in sorted_questions:
         base = get_base_question(code)
         if base not in seen_questions:
             seen_questions.add(base)
-            unique_codes.append(code)
+            all_questions.append(code)
+elif edition == "6. Sixth Edition - Group 4 2025":
+    directory = os.path.join(script_dir, edition, 'questionbank/en/teachers/ibdocs2/questionbanks', subject, 'question_node_trees')
+    exam_codes = set()
 
-    return unique_codes
+    for filename in os.listdir(directory):
+        if filename.endswith('.html'):
+            file_path = os.path.join(directory, filename)
 
-unique_questions = remove_duplicate_questions(sorted_questions)
+            with open(file_path, 'r', encoding='utf-8') as f:
+                file_content = f.read()
+
+            file_soup = BeautifulSoup(file_content, 'html.parser')
+            reference_code_label = file_soup.find('td', class_='info_label', string='Reference code')
+            if reference_code_label:
+                reference_code = reference_code_label.find_next_sibling('td', class_='info_value')
+                if reference_code:
+                    code = reference_code.get_text(strip=True)
+                    exam_codes.add(code)
+                    # Add the file path to links_dict if not already present
+                    if code not in links_dict:
+                        links_dict[code] = f'{edition}/questionbank/en/teachers/ibdocs2/questionbanks/{subject}/question_node_trees/{filename}'
+
+    base_patterns = set()
+    for q in sorted_questions:
+        base = q.split('.')
+        if any(c.isalpha() for c in base[-1]) and len(base[-1]) <= 3:
+            base = '.'.join(base[:-1])
+        else:
+            base = '.'.join(base)
+        base_patterns.add(base)
+
+    for q in sorted(list(exam_codes), key=parse_question_code):
+        for base in base_patterns:
+            if q.startswith(base):
+                all_questions.append(q)
+                break
+
+    all_questions = sorted(all_questions)
 
 if edition == "5. Fifth Edition - TOPIC":
     for element in soup.select(".module"):
@@ -120,7 +145,6 @@ elif edition == "6. Sixth Edition - Group 4 2025":
     for element in soup.select(".row"):
         element.extract()
 
-# Remove footer for both editions
 for element in soup.select(".footer.bottom"):
     element.extract()
 
@@ -128,8 +152,6 @@ all_questions_div = soup.new_tag('div', attrs={'class': 'all-questions'})
 
 if edition == "5. Fifth Edition - TOPIC":
     page_content_container = soup.find('div', class_='page-content container')
-
-    # Append all_questions_div to the container
     if page_content_container:
         page_content_container.append(all_questions_div)
     else:
@@ -137,18 +159,9 @@ if edition == "5. Fifth Edition - TOPIC":
 elif edition == "6. Sixth Edition - Group 4 2025":
     soup.body.append(all_questions_div)
 
-for question_code in unique_questions:
+for question_code in all_questions:
     link_path = links_dict[question_code]
-    absolute_path = os.path.join(base_path, link_path)
-
-    with open(absolute_path, 'r', encoding='utf-8') as f:
-        question_content = f.read()
-
-    question_soup = BeautifulSoup(question_content, "html.parser")
-
-for question_code in unique_questions:
-    link_path = links_dict[question_code]
-    absolute_path = os.path.join(base_path, link_path)
+    absolute_path = os.path.join(script_dir, link_path)
 
     with open(absolute_path, 'r', encoding='utf-8') as f:
         question_content = f.read()
@@ -156,15 +169,12 @@ for question_code in unique_questions:
     question_soup = BeautifulSoup(question_content, "html.parser")
 
     if edition == "5. Fifth Edition - TOPIC":
-        # Find the starting and ending points
         start_h2 = question_soup.find('h2', string='Question')
         end_h2 = question_soup.find('h2', string='Syllabus sections')
 
         if start_h2 and end_h2:
-            # Create a new div to hold the content
             content_div = BeautifulSoup('<div></div>', 'html.parser').div
 
-            # Get all siblings between Question and Syllabus sections
             current = start_h2
             while current and current != end_h2:
                 next_sibling = current.find_next_sibling()
