@@ -44,12 +44,23 @@ for tag in soup.find_all(['link', 'script', 'img', 'a']):
                     tag[attr] = tag[attr].replace('../../../../../../', f'{edition}/questionbank/')
 
 def parse_question_code(code):
-    match = re.match(r'(\d+)M\.(\d+)\.(HL|SL)\.TZ(\d+)\.([a-z0-9]+)', code)
-    if match:
-        year, paper, level, tz, question = match.groups()
-        question_sort = ''.join([i.zfill(3) if i.isdigit() else i for i in re.findall(r'\d+|\D+', question)])
-        return (int(year), int(paper), level, int(tz), question_sort)
-    return (0, 0, '', 0, '')
+    parts = code.split('.')
+
+    if len(parts) < 3:
+        return ('ZZ', '', '', '')
+
+    level = 'HL' if 'HL' in code else 'SL'
+
+    paper = parts[1]
+
+    year_part = parts[0]
+
+    # Extract question number/part
+    question = parts[-1]
+    # Normalize question numbers for sorting
+    question_sort = ''.join([i.zfill(3) if i.isdigit() else i for i in re.findall(r'\d+|\D+', question)])
+
+    return (level, paper, year_part, question_sort)
 
 if edition == "5. Fifth Edition - TOPIC":
     rows = soup.find_all(class_="module")
@@ -93,7 +104,8 @@ if edition == "5. Fifth Edition - TOPIC":
         if base not in seen_questions:
             seen_questions.add(base)
             all_questions.append(code)
-elif edition == "6. Sixth Edition - Group 4 2025":
+    all_questions = sorted(all_questions, key=parse_question_code)
+elif edition == "6. Sixth Edition - Group 4 2025" and include_subsection == True:
     directory = os.path.join(script_dir, edition, 'questionbank/en/teachers/ibdocs2/questionbanks', subject, 'question_node_trees')
     exam_codes = set()
 
@@ -130,7 +142,9 @@ elif edition == "6. Sixth Edition - Group 4 2025":
                 all_questions.append(q)
                 break
 
-    all_questions = sorted(all_questions)
+    all_questions = sorted(all_questions, key=parse_question_code)
+elif edition == "6. Sixth Edition - Group 4 2025":
+    all_questions = sorted_questions
 
 if edition == "5. Fifth Edition - TOPIC":
     for element in soup.select(".module"):
