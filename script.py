@@ -84,6 +84,29 @@ for row in rows:
 
 sorted_questions = sorted(links_dict.keys(), key=parse_question_code)
 
+def remove_duplicate_questions(question_codes):
+    # Function to get the base question number without the part
+    def get_base_question(code):
+        # Split by dot and get all parts except the last
+        parts = code.split('.')
+        # Remove the last character if it's a letter
+        if parts[-1][-1].isalpha():
+            parts[-1] = parts[-1][:-1]
+        return '.'.join(parts)
+
+    seen_questions = set()
+    unique_codes = []
+
+    for code in question_codes:
+        base = get_base_question(code)
+        if base not in seen_questions:
+            seen_questions.add(base)
+            unique_codes.append(code)
+
+    return unique_codes
+
+unique_questions = remove_duplicate_questions(sorted_questions)
+
 if edition == "5. Fifth Edition - TOPIC":
     for element in soup.select(".module"):
         element.extract()
@@ -94,7 +117,6 @@ if edition == "5. Fifth Edition - TOPIC":
     for ul in soup.find_all('ul'):
         ul.decompose()
 elif edition == "6. Sixth Edition - Group 4 2025":
-    # For 6th edition
     for element in soup.select(".row"):
         element.extract()
 
@@ -115,9 +137,16 @@ if edition == "5. Fifth Edition - TOPIC":
 elif edition == "6. Sixth Edition - Group 4 2025":
     soup.body.append(all_questions_div)
 
+for question_code in unique_questions:
+    link_path = links_dict[question_code]
+    absolute_path = os.path.join(base_path, link_path)
 
+    with open(absolute_path, 'r', encoding='utf-8') as f:
+        question_content = f.read()
 
-for question_code in sorted_questions:
+    question_soup = BeautifulSoup(question_content, "html.parser")
+
+for question_code in unique_questions:
     link_path = links_dict[question_code]
     absolute_path = os.path.join(base_path, link_path)
 
@@ -127,33 +156,29 @@ for question_code in sorted_questions:
     question_soup = BeautifulSoup(question_content, "html.parser")
 
     if edition == "5. Fifth Edition - TOPIC":
-        # Create a new div to hold the content
-        content_div = BeautifulSoup('<div></div>', 'html.parser').div
+        # Find the starting and ending points
+        start_h2 = question_soup.find('h2', string='Question')
+        end_h2 = question_soup.find('h2', string='Syllabus sections')
 
-        # Find all the elements we want
-        question_h2 = question_soup.find('h2', string='Question')
-        question_div = question_h2.find_next('div', class_='question') if question_h2 else None
+        if start_h2 and end_h2:
+            # Create a new div to hold the content
+            content_div = BeautifulSoup('<div></div>', 'html.parser').div
 
-        markscheme_h2 = question_soup.find('h2', string='Markscheme')
-        markscheme_div = markscheme_h2.find_next('div', class_='question') if markscheme_h2 else None
+            # Get all siblings between Question and Syllabus sections
+            current = start_h2
+            while current and current != end_h2:
+                next_sibling = current.find_next_sibling()
+                if current == start_h2 or not any(parent for parent in current.parents if parent in content_div.descendants):
+                    content_div.append(copy.copy(current))
+                current = next_sibling if next_sibling else end_h2
 
-        # Add them to our content div
-        if question_h2 and question_div:
-            content_div.append(copy.copy(question_h2))
-            content_div.append(copy.copy(question_div))
-
-        if markscheme_h2 and markscheme_div:
-            content_div.append(copy.copy(markscheme_h2))
-            content_div.append(copy.copy(markscheme_div))
-
-        question_div = content_div
+            question_div = content_div
 
     elif edition == "6. Sixth Edition - Group 4 2025":
         question_div = question_soup.find('div', {'class': 'p-3 bg-white rounded'})
 
     if question_div:
         all_questions_div.append(question_div)
-
 
 with open(destination_file, 'w', encoding='utf-8') as f:
     f.write(str(soup))
