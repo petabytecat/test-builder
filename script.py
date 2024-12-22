@@ -89,6 +89,16 @@ for row in rows:
 
 sorted_questions = sorted(links_dict.keys(), key=parse_question_code)
 
+def is_valid_question_format(code):
+    parts = code.split('.')
+    if len(parts) < 5:  # Must have at least 5 parts
+        return False
+
+    question_number = parts[4]  # Fifth element
+    return question_number[0].isdigit()  # First character must be a number
+
+sorted_questions = [q for q in sorted_questions if is_valid_question_format(q)]
+
 all_questions = []
 if edition == "5. Fifth Edition - TOPIC":
     def get_base_question(code):
@@ -105,6 +115,7 @@ if edition == "5. Fifth Edition - TOPIC":
             seen_questions.add(base)
             all_questions.append(code)
     all_questions = sorted(all_questions, key=parse_question_code)
+
 elif edition == "6. Sixth Edition - Group 4 2025" and include_subsection == True:
     directory = os.path.join(script_dir, edition, 'questionbank/en/teachers/ibdocs2/questionbanks', subject, 'question_node_trees')
     exam_codes = set()
@@ -127,24 +138,59 @@ elif edition == "6. Sixth Edition - Group 4 2025" and include_subsection == True
                     if code not in links_dict:
                         links_dict[code] = f'{edition}/questionbank/en/teachers/ibdocs2/questionbanks/{subject}/question_node_trees/{filename}'
 
-    base_patterns = set()
-    for q in sorted_questions:
-        base = q.split('.')
-        if any(c.isalpha() for c in base[-1]) and len(base[-1]) <= 3:
-            base = '.'.join(base[:-1])
-        else:
-            base = '.'.join(base)
-        base_patterns.add(base)
+    # Group questions by their root number
+    question_groups = {}
+    for q in exam_codes:
+        parts = q.split('.')
+        last_part = parts[-1]
+        # Get the root number (remove any letters)
+        root_number = ''.join(filter(str.isdigit, last_part))
+        if root_number:
+            parts[-1] = root_number
+            root = '.'.join(parts)
+            if root not in question_groups:
+                question_groups[root] = set()
+            question_groups[root].add(q)
 
-    for q in sorted(list(exam_codes), key=parse_question_code):
-        for base in base_patterns:
-            if q.startswith(base):
-                all_questions.append(q)
-                break
+    # Process each group and add to all_questions
+    for root, questions in question_groups.items():
+        # If the root exists as a question, use only that
+        if root in exam_codes:
+            all_questions.append(root)
+        else:
+            # If root doesn't exist, add all sub-questions
+            all_questions.extend(sorted(questions, key=parse_question_code))
 
     all_questions = sorted(all_questions, key=parse_question_code)
+    #all_questions = sorted(all_questions, key=parse_question_code)
 elif edition == "6. Sixth Edition - Group 4 2025":
-    all_questions = sorted_questions
+    def is_valid_question(code):
+        # Split the code into parts
+        parts = code.split('.')
+        if len(parts) < 2:
+            return False
+
+        # Get the last part (question number/letter)
+        last_part = parts[-1].lower()
+
+        # Match standalone numbers (e.g., "4") or letters (e.g., "a")
+        if last_part.isdigit() or (len(last_part) == 1 and last_part.isalpha()):
+            return True
+
+        # Match first parts of questions (e.g., "4a", "4a.i", "b.i")
+        # But reject parts like "4b.ii", "3c.i", "9a.ii"
+        if len(last_part) > 1:
+            # If it starts with a number, should only be followed by 'a' or 'a.i'
+            if last_part[0].isdigit():
+                return last_part.endswith('a') or last_part.endswith('a.i')
+            # If it starts with a letter, should only be followed by '.i' or nothing
+            elif last_part[0].isalpha():
+                return len(last_part) == 1 or last_part.endswith('.i')
+
+        return False
+
+    # Filter the sorted questions
+    all_questions = [q for q in sorted_questions if is_valid_question(q)]
 
 if edition == "5. Fifth Edition - TOPIC":
     for element in soup.select(".module"):
@@ -182,12 +228,20 @@ for question_code in all_questions:
 
     question_soup = BeautifulSoup(question_content, "html.parser")
 
+    # Create a container div for both code and question
+    container_div = soup.new_tag('div', attrs={'class': 'question-container'})
+
+    # Create and add the code div
+    code_div = soup.new_tag('div', attrs={'class': 'question-code'})
+    code_div.string = question_code
+    container_div.append(code_div)
+
     if edition == "5. Fifth Edition - TOPIC":
         start_h2 = question_soup.find('h2', string='Question')
         end_h2 = question_soup.find('h2', string='Syllabus sections')
 
         if start_h2 and end_h2:
-            content_div = BeautifulSoup('<div></div>', 'html.parser').div
+            content_div = BeautifulSoup('<div class="question-content"></div>', 'html.parser').div
 
             current = start_h2
             while current and current != end_h2:
@@ -196,13 +250,37 @@ for question_code in all_questions:
                     content_div.append(copy.copy(current))
                 current = next_sibling if next_sibling else end_h2
 
-            question_div = content_div
+            container_div.append(content_div)
 
     elif edition == "6. Sixth Edition - Group 4 2025":
         question_div = question_soup.find('div', {'class': 'p-3 bg-white rounded'})
+        if question_div:
+            question_div['class'] = 'question-content'
+            container_div.append(question_div)
 
-    if question_div:
-        all_questions_div.append(question_div)
+    if container_div.find('div', {'class': 'question-content'}):
+        all_questions_div.append(container_div)
+
+# Add some CSS to style the question code
+style_tag = soup.new_tag('style')
+style_tag.string = '''
+    .question-container {
+        margin-bottom: 2em;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+    }
+    .question-code {
+        background-color: #f8f9fa;
+        padding: 0.5em;
+        border-bottom: 1px solid #ddd;
+        font-family: monospace;
+        font-weight: bold;
+    }
+    .question-content {
+        padding: 1em;
+    }
+'''
+soup.head.append(style_tag)
 
 with open(destination_file, 'w', encoding='utf-8') as f:
     f.write(str(soup))
