@@ -94,26 +94,101 @@ def is_valid_question_format(code):
     if len(parts) < 5:  # Must have at least 5 parts
         return False
 
-    question_number = parts[4]  # Fifth element
-    return question_number[0].isdigit()  # First character must be a number
+    question_part = parts[4]  # Fifth element
+    
+    # Handle both underscore and period formats
+    # Examples: "11a", "H_11a", "S_7a"
+    if '_' in question_part:
+        # For underscore format like "H_11a", extract the part after underscore
+        underscore_parts = question_part.split('_')
+        if len(underscore_parts) > 1:
+            question_number = underscore_parts[1]  # Get "11a" from "H_11a"
+        else:
+            question_number = question_part
+    else:
+        # For period format like "11a"
+        question_number = question_part
+    
+    # Check if it starts with a digit
+    return len(question_number) > 0 and question_number[0].isdigit()
 
 sorted_questions = [q for q in sorted_questions if is_valid_question_format(q)]
 
 all_questions = []
 if edition == "5. Fifth Edition - TOPIC":
     def get_base_question(code):
+        """
+        Extract the base question code by removing all sub-question parts.
+        Examples:
+        21M.1.AHL.TZ2.11a -> 21M.1.AHL.TZ2.11
+        21M.1.AHL.TZ2.11b.ii -> 21M.1.AHL.TZ2.11
+        20N.2.AHL.TZ0.H_11a -> 20N.2.AHL.TZ0.H_11
+        20N.2.AHL.TZ0.H_11b -> 20N.2.AHL.TZ0.H_11
+        """
         parts = code.split('.')
-        if parts[-1][-1].isalpha():
-            parts[-1] = parts[-1][:-1]
-        return '.'.join(parts)
+        if len(parts) < 5:
+            return code
+            
+        question_part_index = 4
+        if question_part_index >= len(parts):
+            return code
+            
+        question_part = parts[question_part_index]
+        
+        # Handle underscore format (e.g., "H_11a")
+        if '_' in question_part:
+            prefix, suffix = question_part.split('_', 1)
+            # Extract only the leading digits from the suffix
+            base_number = ''
+            for char in suffix:
+                if char.isdigit():
+                    base_number += char
+                else:
+                    break
+            if base_number:
+                new_question_part = f"{prefix}_{base_number}"
+                new_parts = parts[:question_part_index] + [new_question_part]
+                return '.'.join(new_parts)
+        else:
+            # Handle period format (e.g., "11a")
+            base_number = ''
+            for char in question_part:
+                if char.isdigit():
+                    base_number += char
+                else:
+                    break
+            if base_number:
+                new_parts = parts[:question_part_index] + [base_number]
+                return '.'.join(new_parts)
+        
+        return code
 
-    seen_questions = set()
-
+    # Group questions by their base question
+    question_groups = {}
     for code in sorted_questions:
         base = get_base_question(code)
-        if base not in seen_questions:
-            seen_questions.add(base)
-            all_questions.append(code)
+        if base not in question_groups:
+            question_groups[base] = []
+        question_groups[base].append(code)
+    
+    # For each group, pick the best representative
+    for base, codes in question_groups.items():
+        # First preference: use the base question if it exists
+        if base in links_dict:
+            all_questions.append(base)
+        # Second preference: use the first sub-question (usually 'a')
+        else:
+            # Sort the codes to get the first sub-question
+            sorted_codes = sorted(codes, key=lambda x: x.split('.')[-1])
+            all_questions.append(sorted_codes[0])
+            # Make sure we have a link for this question
+            if sorted_codes[0] not in links_dict and codes:
+                # Use any available link from the group
+                for code in codes:
+                    if code in links_dict:
+                        links_dict[sorted_codes[0]] = links_dict[code]
+                        break
+    
     all_questions = sorted(all_questions, key=parse_question_code)
 
 elif edition == "6. Sixth Edition - Group 4 2025" and include_subsection == True:
