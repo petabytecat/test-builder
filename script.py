@@ -357,5 +357,24 @@ style_tag.string = '''
 '''
 soup.head.append(style_tag)
 
+# 1. Remove alttext in all <math> tags
+for math_tag in soup.find_all('math'):
+    if 'alttext' in math_tag.attrs:
+        math_tag['alttext'] = ''
+
+# 2. Clean <mtext> and <mo> content
+for tag in soup.find_all(['mtext', 'mo']):
+    if tag.string:
+        # Remove weird function symbol (U+2061)
+        tag.string = tag.string.replace("\u2061", "")
+        # Replace NBSP with numeric space
+        tag.string = tag.string.replace("\u00A0", "&#32;")
+        # Replace literal spaces with numeric space
+        tag.string = tag.string.replace(" ", "&#32;")
+
+# 3. Optional: replace &nbsp; in the raw HTML as extra safeguard
+html_str = str(soup)
+html_str = html_str.replace("&nbsp;", "&#32;")
+
 with open(destination_file, 'w', encoding='utf-8') as f:
     f.write(str(soup))
