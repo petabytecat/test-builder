@@ -363,13 +363,12 @@ for math_tag in soup.find_all('math'):
         math_tag['alttext'] = ''
 
 # 2. Clean <mtext> and <mo> content
-for tag in soup.find_all(['mtext', 'mo']):
+for tag in soup.find_all(['mtext', 'mo', 'mi']):
     if tag.string:
-        # Remove weird function symbol (U+2061)
+        # Remove weird invisible function symbol (U+2061)
         tag.string = tag.string.replace("\u2061", "")
-        # Replace NBSP with numeric space
+        # Replace NBSP and literal spaces with numeric space
         tag.string = tag.string.replace("\u00A0", "&#32;")
-        # Replace literal spaces with numeric space
         tag.string = tag.string.replace(" ", "&#32;")
 
 # 3. Optional: replace &nbsp; in the raw HTML as extra safeguard
