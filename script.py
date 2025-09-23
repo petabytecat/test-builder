@@ -34,14 +34,6 @@ with open(destination_file, 'r', encoding='utf-8') as f:
     content = f.read()
 soup = BeautifulSoup(content, "html.parser")
 
-for tag in soup.find_all(['link', 'script', 'img', 'a']):
-    for attr in ['href', 'src']:
-        if tag.has_attr(attr):
-            if tag[attr].startswith('../../../../../../'):
-                if edition == "5. Fifth Edition - TOPIC":
-                    tag[attr] = tag[attr].replace('../../../../../../', f'{edition}/questionbank.ibo.org/')
-                elif edition == "6. Sixth Edition - Group 4 2025":
-                    tag[attr] = tag[attr].replace('../../../../../../', f'{edition}/questionbank/')
 
 def parse_question_code(code):
     parts = code.split('.')
@@ -356,6 +348,16 @@ style_tag.string = '''
     }
 '''
 soup.head.append(style_tag)
+
+for tag in soup.find_all(['link', 'script', 'img', 'a']):
+    for attr in ['href', 'src']:
+        if tag.has_attr(attr):
+            if tag[attr].startswith('../../../../../../'):
+                if edition == "5. Fifth Edition - TOPIC":
+                    tag[attr] = tag[attr].replace('../../../../../../', f'{edition}/questionbank.ibo.org/')
+                elif edition == "6. Sixth Edition - Group 4 2025":
+                    tag[attr] = tag[attr].replace('../../../../../../', f'{edition}/questionbank/')
+
 
 # 1. Remove alttext in all <math> tags
 for math_tag in soup.find_all('math'):
