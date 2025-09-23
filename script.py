@@ -370,12 +370,13 @@ for tag in soup.find_all(['mtext', 'mo', 'mi']):
         # Remove weird invisible function symbol (U+2061)
         tag.string = tag.string.replace("\u2061", "")
         # Replace NBSP and literal spaces with numeric space
-        tag.string = tag.string.replace("\u00A0", "&#32;")
-        tag.string = tag.string.replace(" ", "&#32;")
+        tag.string = tag.string.replace(" ", "")
+
+        tag.string = tag.string.replace("\u00A0", "")
 
 # 3. Optional: replace &nbsp; in the raw HTML as extra safeguard
-html_str = str(soup)
-html_str = html_str.replace("&nbsp;", "&#32;")
+#html_str = str(soup)
+#html_str = html_str.replace("&nbsp;", "&#32;")
 
 with open(destination_file, 'w', encoding='utf-8') as f:
     f.write(str(soup))
