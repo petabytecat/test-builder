@@ -264,7 +264,18 @@ style_tag.string = '''
         padding: 1em;
     }
 '''
+
 clean_soup.head.append(style_tag)
+
+for tag in clean_soup.find_all(['link', 'script', 'img', 'a']):
+    for attr in ['href', 'src']:
+        if tag.has_attr(attr):
+            if tag[attr].startswith('../../../../../../'):
+                if edition == "5. Fifth Edition - TOPIC":
+                    tag[attr] = tag[attr].replace('../../../../../../', f'{edition}/questionbank.ibo.org/')
+                elif edition == "6. Sixth Edition - Group 4 2025":
+                    tag[attr] = tag[attr].replace('../../../../../../', f'{edition}/questionbank/')
+
 
 # Clean math tags
 for math_tag in clean_soup.find_all('math'):
