@@ -182,7 +182,6 @@ if edition == "5. Fifth Edition - TOPIC":
                         break
     
     all_questions = sorted(all_questions, key=parse_question_code)
-
 elif edition == "6. Sixth Edition - Group 4 2025" and include_subsection == True:
     directory = os.path.join(script_dir, edition, 'questionbank/en/teachers/ibdocs2/questionbanks', subject, 'question_node_trees')
     exam_codes = set()
@@ -205,12 +204,27 @@ elif edition == "6. Sixth Edition - Group 4 2025" and include_subsection == True
                     if code not in links_dict:
                         links_dict[code] = f'{edition}/questionbank/en/teachers/ibdocs2/questionbanks/{subject}/question_node_trees/{filename}'
 
-    # Group questions by their root number
+    # Build a set of base roots that appear in the input HTML
+    html_roots = set()
+    for q in sorted_questions:
+        parts = q.split('.')
+        if len(parts) >= 5:
+            last = parts[-1]
+            base_num = ''
+            for c in last:
+                if c.isdigit():
+                    base_num += c
+                else:
+                    break
+            if base_num:
+                parts[-1] = base_num
+                html_roots.add('.'.join(parts))
+
+    # Group all known questions by their root number
     question_groups = {}
     for q in exam_codes:
         parts = q.split('.')
         last_part = parts[-1]
-        # Get the root number (remove any letters)
         root_number = ''.join(filter(str.isdigit, last_part))
         if root_number:
             parts[-1] = root_number
@@ -219,17 +233,21 @@ elif edition == "6. Sixth Edition - Group 4 2025" and include_subsection == True
                 question_groups[root] = set()
             question_groups[root].add(q)
 
-    # Process each group and add to all_questions
+    # Keep only questions that match HTML roots or their subparts
+    filtered_exam_codes = set()
     for root, questions in question_groups.items():
-        # If the root exists as a question, use only that
-        if root in exam_codes:
-            all_questions.append(root)
-        else:
-            # If root doesn't exist, add all sub-questions
-            all_questions.extend(sorted(questions, key=parse_question_code))
+        if root in html_roots:
+            filtered_exam_codes.update(questions)
 
-    all_questions = sorted(all_questions, key=parse_question_code)
-    #all_questions = sorted(all_questions, key=parse_question_code)
+    # Process filtered question groups and add to all_questions
+    for root, questions in question_groups.items():
+        if root in html_roots:
+            if root in filtered_exam_codes:
+                all_questions.append(root)
+            else:
+                all_questions.extend(sorted(questions, key=parse_question_code))
+
+    all_questions = sorted(set(all_questions), key=parse_question_code)
 elif edition == "6. Sixth Edition - Group 4 2025":
     def is_valid_question(code):
         # Split the code into parts
