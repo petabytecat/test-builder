@@ -149,6 +149,11 @@ elif edition == "6. Sixth Edition - Group 4 2025" and include_subsection == True
                     if code not in links_dict:
                         links_dict[code] = f'{edition}/questionbank/en/teachers/ibdocs2/questionbanks/{subject}/question_node_trees/{filename}'
 
+    print("\n✅ Found the following question reference codes in the question bank:")
+    for code in sorted(exam_codes):
+        print("  -", code)
+    print(f"\nTotal questions found: {len(exam_codes)}\n")
+
     html_roots = set()
     for q in sorted_questions:
         parts = q.split('.')
@@ -169,18 +174,17 @@ elif edition == "6. Sixth Edition - Group 4 2025" and include_subsection == True
                 question_groups[root] = set()
             question_groups[root].add(q)
 
-    filtered_exam_codes = set()
-    for root, questions in question_groups.items():
-        if root in html_roots:
-            filtered_exam_codes.update(questions)
+    all_questions = []
 
     for root, questions in question_groups.items():
         if root in html_roots:
-            if root in filtered_exam_codes:
+            if root in exam_codes:
                 all_questions.append(root)
             else:
                 all_questions.extend(sorted(questions, key=parse_question_code))
+
     all_questions = sorted(set(all_questions), key=parse_question_code)
+
 
 
 elif edition == "6. Sixth Edition - Group 4 2025":
