@@ -67,7 +67,7 @@ for row in rows:
                 if edition == "5. Fifth Edition - TOPIC":
                     correct_path = f'{edition}/questionbank.ibo.org/en/teachers/00000/questionbanks/{subject}/questions/{original_link.split("/")[-1]}'
                 elif edition == "6. Sixth Edition - Group 4 2025":
-                    correct_path = f'{edition}/questionbank/en/teachers/ibdocs2/questionbanks/{subject}/question_node_trees/{original_link.split("/")[-1]}'
+                    correct_path = f'{edition}/questionbank/en/teachers/pirateIB/questionbanks/{subject}/question_node_trees/{original_link.split("/")[-1]}'
                 links_dict[question_code] = correct_path
 
 sorted_questions = sorted(links_dict.keys(), key=parse_question_code)
@@ -131,7 +131,7 @@ if edition == "5. Fifth Edition - TOPIC":
 
 
 elif edition == "6. Sixth Edition - Group 4 2025" and include_subsection == True:
-    directory = os.path.join(script_dir, edition, 'questionbank/en/teachers/ibdocs2/questionbanks', subject, 'question_node_trees')
+    directory = os.path.join(script_dir, edition, 'questionbank/en/teachers/pirateIB/questionbanks', subject, 'question_node_trees')
     exam_codes = set()
 
     for filename in os.listdir(directory):
@@ -147,7 +147,7 @@ elif edition == "6. Sixth Edition - Group 4 2025" and include_subsection == True
                     code = reference_code.get_text(strip=True)
                     exam_codes.add(code)
                     if code not in links_dict:
-                        links_dict[code] = f'{edition}/questionbank/en/teachers/ibdocs2/questionbanks/{subject}/question_node_trees/{filename}'
+                        links_dict[code] = f'{edition}/questionbank/en/teachers/pirateIB/questionbanks/{subject}/question_node_trees/{filename}'
 
     print("\n✅ Found the following question reference codes in the question bank:")
     for code in sorted(exam_codes):
